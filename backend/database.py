@@ -7,7 +7,7 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Create a table to store users and their points
+    # create a table to store users and their points
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
@@ -23,16 +23,16 @@ def add_points(username: str, points: int):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Check if user exists
+    # check if user exists
     cursor.execute("SELECT points FROM users WHERE username = ?", (username,))
     result = cursor.fetchone()
     
     if result:
-        # User exists, update points
+        # user exists,update points
         new_points = result[0] + points
         cursor.execute("UPDATE users SET points = ? WHERE username = ?", (new_points, username))
     else:
-        # User doesn't exist, insert new user with points
+        #ser doesn't exist, insert new user with points
         new_points = points
         cursor.execute("INSERT INTO users (username, points) VALUES (?, ?)", (username, new_points))
         
