@@ -81,8 +81,8 @@ if __name__ == "__main__":
         min_radius=5, 
         max_radius=20
     )
+  
     
-    # Let's see the results!
     for g in spawned_ghosts:
         # We limit the printout to 6 decimal places because GPS precision gets weird past that
         print(f"✅ Spawned [{g['type']}]")
