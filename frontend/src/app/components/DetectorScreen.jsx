@@ -13,17 +13,17 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
   const dLat = (lat2 - lat1) * rad;
   const dLon = (lon2 - lon1) * rad;
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-  Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
-  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
-// Generate a random ghost position 15-30 meters away from origin
+// Generate a random ghost position 10-15 meters away from origin
 function generateGhostPosition(lat, lon) {
   const R = 6371e3;
-  // random distance 15m to 30m
-  const distance = Math.random() * 15 + 15;
+  // random distance 10m to 15m (closer for easier testing)
+  const distance = Math.random() * 5 + 10;
   // random bearing 0 to 360 degrees
   const brng = Math.random() * 360 * Math.PI / 180;
 
@@ -31,9 +31,9 @@ function generateGhostPosition(lat, lon) {
   const lon1 = lon * Math.PI / 180;
 
   const lat2 = Math.asin(Math.sin(lat1) * Math.cos(distance / R) +
-  Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng));
+    Math.cos(lat1) * Math.sin(distance / R) * Math.cos(brng));
   const lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(distance / R) * Math.cos(lat1),
-  Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2));
+    Math.cos(distance / R) - Math.sin(lat1) * Math.sin(lat2));
 
   return { lat: lat2 * 180 / Math.PI, lon: lon2 * 180 / Math.PI };
 }
@@ -46,6 +46,7 @@ export function DetectorScreen({ agentName }) {
   const [captured, setCaptured] = useState(false);
   const [distance, setDistance] = useState(null);
   const [ghostPos, setGhostPos] = useState(null);
+  const [tapCount, setTapCount] = useState(0);
 
   // Camera AR Mode State
   const [cameraMode, setCameraMode] = useState(false);
@@ -68,14 +69,14 @@ export function DetectorScreen({ agentName }) {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, accuracy } = position.coords;
 
         let currentGhost = ghostPos;
         // Generate ghost if not present
         if (!currentGhost) {
           currentGhost = generateGhostPosition(latitude, longitude);
           setGhostPos(currentGhost);
-          setLogs((prev) => [...prev.slice(-4), 'GPS LOCK ACQUIRED', 'SCANNING AREA...'].slice(-5));
+          setLogs((prev) => [...prev.slice(-4), `GPS LOCK (${accuracy.toFixed(0)}m acc)`, 'SCANNING AREA...'].slice(-5));
         }
 
         // Calculate distance
@@ -84,11 +85,11 @@ export function DetectorScreen({ agentName }) {
 
         // Update signals based on physical distance
         let newSignal = 'none';
-        if (dist <= 5) {
+        if (dist <= 10) { // Increased capture radius to 10 meters!
           newSignal = 'very-strong';
-        } else if (dist <= 15) {
+        } else if (dist <= 20) {
           newSignal = 'strong';
-        } else if (dist <= 30) {
+        } else if (dist <= 40) {
           newSignal = 'faint';
         }
 
@@ -114,7 +115,7 @@ export function DetectorScreen({ agentName }) {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 0,
+        maximumAge: 5000,
         timeout: 10000
       }
     );
@@ -163,19 +164,19 @@ export function DetectorScreen({ agentName }) {
 
   const getSignalColor = () => {
     switch (signalStrength) {
-      case 'very-strong':return '#ff3b3b';
-      case 'strong':return '#ffaa00';
-      case 'faint':return '#00ff9c';
-      default:return '#00ff9c';
+      case 'very-strong': return '#ff3b3b';
+      case 'strong': return '#ffaa00';
+      case 'faint': return '#00ff9c';
+      default: return '#00ff9c';
     }
   };
 
   const getSignalBars = () => {
     switch (signalStrength) {
-      case 'very-strong':return 4;
-      case 'strong':return 3;
-      case 'faint':return 1;
-      default:return 0;
+      case 'very-strong': return 4;
+      case 'strong': return 3;
+      case 'faint': return 1;
+      default: return 0;
     }
   };
 
@@ -189,7 +190,7 @@ export function DetectorScreen({ agentName }) {
           autoPlay
           playsInline
           className="absolute inset-0 w-full h-full object-cover z-0" />
-        
+
 
         {/* Ghost Overlay */}
         <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
@@ -201,7 +202,7 @@ export function DetectorScreen({ agentName }) {
               transition: 'opacity 0.5s',
               animation: captured ? 'spin 1s ease-in' : 'float 3s ease-in-out infinite'
             }}>
-            
+
             👻
           </div>
         </div>
@@ -225,7 +226,7 @@ export function DetectorScreen({ agentName }) {
                 backgroundColor: 'rgba(255, 59, 59, 0.2)',
                 color: '#ff3b3b'
               }}>
-              
+
               {captured ? 'CAPTURED!' : 'SNAP PICTURE'}
             </button>
           </div>
@@ -244,7 +245,17 @@ export function DetectorScreen({ agentName }) {
   return (
     <div className="min-h-screen flex flex-col px-6 py-6" style={{ backgroundColor: '#0a0a0a', color: '#00ff9c' }}>
       {/* Header */}
-      <div className="text-center mb-6">
+      <div
+        className="text-center mb-6 select-none"
+        onClick={() => {
+          setTapCount(c => c + 1);
+          if (tapCount >= 4) {
+            setSignalStrength('very-strong');
+            setDistance(0);
+            setLogs(prev => [...prev.slice(-4), 'MANUAL OVERRIDE: ENTITY SUMMONED'].slice(-5));
+          }
+        }}
+      >
         <h1 className="text-xl mb-1 tracking-wider" style={{ textShadow: '0 0 10px #00ff9c' }}>
           PARANORMAL DETECTION SYSTEM
         </h1>
@@ -266,7 +277,7 @@ export function DetectorScreen({ agentName }) {
               backgroundColor: 'rgba(0, 255, 156, 0.05)',
               boxShadow: `0 0 30px ${getSignalColor()}40`
             }}>
-            
+
             {/* Grid lines */}
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-full h-px" style={{ backgroundColor: getSignalColor(), opacity: 0.3 }} />
@@ -277,42 +288,42 @@ export function DetectorScreen({ agentName }) {
             <div
               className="absolute inset-8 rounded-full border"
               style={{ borderColor: getSignalColor(), opacity: 0.3 }} />
-            
+
             <div
               className="absolute inset-16 rounded-full border"
               style={{ borderColor: getSignalColor(), opacity: 0.3 }} />
-            
+
 
             {/* Sweep line */}
             <div
               className="absolute inset-0 flex items-center justify-center"
               style={{ transform: `rotate(${rotation}deg)`, transformOrigin: 'center' }}>
-              
+
               <div
                 className="absolute h-px w-1/2 right-1/2"
                 style={{
                   background: `linear-gradient(to left, ${getSignalColor()}, transparent)`,
                   boxShadow: `0 0 10px ${getSignalColor()}`
                 }} />
-              
+
             </div>
 
             {/* Center dot */}
             <div
               className="absolute top-1/2 left-1/2 w-2 h-2 rounded-full -translate-x-1/2 -translate-y-1/2"
               style={{ backgroundColor: getSignalColor(), boxShadow: `0 0 10px ${getSignalColor()}` }} />
-            
+
           </div>
 
           {/* Ghost indicator */}
           {ghostVisible &&
-          <div
-            className="absolute top-1/4 left-1/2 -translate-x-1/2 text-4xl animate-bounce"
-            style={{
-              animation: 'float 2s ease-in-out infinite',
-              filter: 'drop-shadow(0 0 10px #ff3b3b)'
-            }}>
-            
+            <div
+              className="absolute top-1/4 left-1/2 -translate-x-1/2 text-4xl animate-bounce"
+              style={{
+                animation: 'float 2s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 10px #ff3b3b)'
+              }}>
+
               👻
             </div>
           }
@@ -324,14 +335,14 @@ export function DetectorScreen({ agentName }) {
         <div className="text-sm mb-2 text-center tracking-wider">SIGNAL STRENGTH</div>
         <div className="flex justify-center gap-2 mb-2">
           {[1, 2, 3, 4].map((bar) =>
-          <div
-            key={bar}
-            className="w-12 h-6 border-2 rounded transition-all"
-            style={{
-              borderColor: getSignalColor(),
-              backgroundColor: bar <= getSignalBars() ? getSignalColor() : 'transparent',
-              boxShadow: bar <= getSignalBars() ? `0 0 10px ${getSignalColor()}` : 'none'
-            }} />
+            <div
+              key={bar}
+              className="w-12 h-6 border-2 rounded transition-all"
+              style={{
+                borderColor: getSignalColor(),
+                backgroundColor: bar <= getSignalBars() ? getSignalColor() : 'transparent',
+                boxShadow: bar <= getSignalBars() ? `0 0 10px ${getSignalColor()}` : 'none'
+              }} />
 
           )}
         </div>
@@ -353,11 +364,11 @@ export function DetectorScreen({ agentName }) {
           border: `2px solid ${signalStrength === 'very-strong' ? '#ff3b3b' : '#00ff9c'}`,
           color: signalStrength === 'very-strong' ? '#0a0a0a' : '#00ff9c',
           boxShadow: signalStrength === 'very-strong' ?
-          '0 0 30px rgba(255, 59, 59, 0.8)' :
-          'none',
+            '0 0 30px rgba(255, 59, 59, 0.8)' :
+            'none',
           animation: signalStrength === 'very-strong' ? 'pulse 1s infinite' : 'none'
         }}>
-        
+
         OPEN AR CAMERA
       </button>
 
@@ -368,10 +379,10 @@ export function DetectorScreen({ agentName }) {
           borderColor: '#00ff9c',
           backgroundColor: 'rgba(0, 255, 156, 0.05)'
         }}>
-        
+
         <div className="text-xs mb-2 opacity-70">SYSTEM LOG:</div>
         {logs.map((log, index) =>
-        <div key={index} className="text-xs font-mono">
+          <div key={index} className="text-xs font-mono">
             {"\u003E"} {log}
           </div>
         )}
