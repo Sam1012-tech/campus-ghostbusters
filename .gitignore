@@ -1,0 +1,32 @@
+
+# BACKEND (Python / FastAPI)
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Database (CRITICAL)
+*.db
+*.sqlite3
+*.sqlite
+
+# FRONTEND (React / Node)
+
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+.npm
+
+# OS / IDE FILES
+
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
